@@ -1,79 +1,150 @@
 
+library(extrafont)
+
+font_import()
+
+y
+loadfonts(device ="win")
+
+
+remotes::install_version("Rttf2pt1", version = "1.3.8")
+
+
 library(tidyverse)
-
-library(dplyr)
-
 
 ##working directory 지정 Ctrl + shift + h
 ##check.names=FALSE 넣어야 함!! 년도 앞에 x 안나타나게
 
-install.packages("readr")
 
-install.packages("devtools")
-devtools::install_github("tidyverse/readr")
-
-Gen_raw <- read.csv("211110_EPSIStotalGen.csv", header=TRUE, fileEncoding = "UTF-8-BOM", check.names=FALSE)
+co2<-read.csv("210810_co2_emission_kor.csv", 
+              header=TRUE, fileEncoding = "UTF-8-BOM", check.names=FALSE) %>% 
+  rename(region = 지역, type = 구분)
 
 
-Gen_raw
-View(Gen_raw)
+str(co2)
+head(co2)
 
+
+  
 
 
 ##현재 wide data임
 ## gather() 함수를 이용해서 tidy data로 전환 필요
 
 
-head(Gen_raw)
 
-Gen_tidy <-Gen_raw %>% 
-  gather(type, MWh, -연도) %>% 
-  rename(year =연도)
-
-head(Gen_tidy)
-
-View(Gen_tidy)
-
-str(Gen_tidy)
-
-Gen_tidy %>% 
-  distinct(type)
+co2.tidy <-co2 %>% 
+  gather(year, emission, -region, -type)
 
 
-Gen_type <-Gen_tidy %>% 
-  filter (type != "한전구입" & type != "자가소비" & type != "사업자+한전구입" & 
-            type != "사업자+상용자가")
+head(co2.tidy)
 
-
-Gen_type %>% 
-  filter(type =="기타") %>% 
-  View()
-
-
-head(Gen_type)
-
-Gen_type %>% 
-  ggplot()+
-  geom_line(mapping= aes(x=year, y=MWh))+
-  facet_wrap(~type)+
-  scale_fill_brewer(palette="Paired")+
-  theme(plot.title = element_text(size=10, hjust=0.5),
-        axis.title = element_text(size=10, face="bold"),
-        plot.subtitle= element_blank()) +
-  scale_x_continuous(breaks = seq(1960,2020, 10))
+str(co2.tidy)
 
 
 
-install.packages("RColorBrewer")
-install.packages("ggthemes")
-
-library(RColorBrewer)
-
-library(ggthemes)
 
 ##numeric으로 설정!!!
 
+co2.tidy$year <- as.numeric(co2.tidy$year)
+co2.tidy$emission <- as.numeric(co2.tidy$emission)
 
+
+head(co2.tidy)
+
+View(co2.tidy)
+
+##0인 값들을 NA로 설정. 그래프에 0값 안 뜨게
+
+co2.tidy[co2.tidy == 0] <-NA
+
+View(co2.tidy)
+
+
+
+### 지역별 발전량 csv 뽑기
+
+gen_raw<-read.csv("211110_MWh_regional.csv", header=TRUE, fileEncoding = "UTF-8-BOM", check.names=FALSE) %>% 
+  rename(year=연도)
+
+
+head(gen_raw)
+
+gen_tidy <-gen_raw %>% 
+  gather (type, MWh, -year)
+
+
+head(gen_tidy)
+
+
+### MWh mutate 한 후 select로 필요한 것만 선택
+
+gen_GWh <-gen_tidy %>%
+  mutate ( GWh = MWh/1000) %>% 
+  select(-MWh) %>% 
+  rename(region =type)
+
+
+head(gen_GWh)
+
+
+co2.net <- co2.tidy %>% 
+  filter(region !="국가", type =="순배출량") %>% 
+  select(-type)
+
+str(co2.net)
+
+head(co2.net)
+
+head(gen_GWh)
+str(gen_GWh)
+
+
+gen_GWh$year <- as.numeric(gen_GWh$year)
+
+
+#### left join?? 가능?
+
+CO2_GWh <- left_join(co2.net, gen_GWh, by = c("region", "year"))
+
+CO2_GWh
+
+
+
+
+
+## Force R not to use exponential notation
+
+options(scipen = 999)
+
+
+### Formatting decimal places in R
+
+options (digits= 2)
+
+## facet_wrap을 통해 각각 보여주기
+
+
+head(CO2_GWh)
+
+library(ggthemes)
+
+CO2_GWh %>% 
+  ggplot()+
+  geom_line(mapping = aes(x=year, y=emission, color = "red"))+
+  geom_line(mapping = aes(x=year, y=GWh))+
+  facet_wrap(~region, ncol=4)+
+  theme_bw()+
+  scale_x_continuous(
+    breaks = seq(1990, 2020, by = 5)
+  )+
+  labs(
+    title =" 대한민국 17개 광역지자체 온실가스 순배출량 vs 발전량",
+    subtitle = "서브타이틀",
+    x = "연도",
+    y = "배출량 or 발전량",
+    caption = "제작 : 한국에너지기술연구원 정책연구실 안지석"
+  )
 
 
 
@@ -83,6 +154,14 @@ co2.total %>%
   ggplot(mapping= aes(x=year, y=emission))+
   geom_bar(position="stack", stat="identity")+
   facet_wrap(~지역)
+
+
+
+## Removed 31 rows containing missing values (position_stack).  확인해보자
+
+co2.total %>% 
+  count(emission =="NA")
+
 
 
 ## 한판에 보여주기
@@ -131,6 +210,9 @@ co2.kor <- ggplot()+
        caption= "제작:KIER, 데이터 출처: 환경부 온실가스 종합 정보센터")
 
 co2.kor
+
+
+
 
 
 
@@ -199,14 +281,14 @@ co2_total_tidy$emission <- as.numeric(gsub(",","", co2_total_tidy$emission))
 
 p1 <-co2_total_tidy %>% 
   filter(구분 %in% c("에너지", "산업공정", "농업", "LULUCF", "폐기물")) %>% 
-  ggplot(aes(x=year, y=emission, fill = 구분, group= 구분))+
+    ggplot(aes(x=year, y=emission, fill = 구분, group= 구분))+
   geom_bar(position="stack", stat="identity")+
   scale_fill_brewer(palette="Paired")+
   theme(plot.title = element_text(size=20, hjust=0.5),
         axis.title = element_text(size=35, face="bold"),
         plot.subtitle= element_blank()) +
   scale_x_discrete(breaks = seq(1990,2018, 5))
-
+  
 
 p1
 
@@ -334,7 +416,7 @@ ggplot() +
 
 
 ## 1990~ 2018 17개시도별 온실가스 배출 구분  (누적 area 차트)  -> 인포그래픽 제작
-
+ 
 
 
 ## 잘 되는 버전 (완성)
@@ -481,7 +563,7 @@ str(CO2.17)
 independence_raw <- read.csv("210915_independence.csv",  fileEncoding = "UTF-8-BOM", header=TRUE, check.names=FALSE)
 
 str(independence_raw)
-View(independence_raw)
+head(independence_raw)
 
 
 
@@ -559,13 +641,14 @@ View(co2percapita_raw)
 
 str(co2percapita_raw)
 
+head(co2percapita_raw)
 
 co2percapita_tidy <-co2percapita_raw %>% 
   gather('year', 'tonpercapita', -process)
 
 
 
-View(co2percapita_tidy)
+head(co2percapita_tidy)
 
 str(co2percapita_tidy)
 
@@ -577,7 +660,7 @@ co2percapita_tidy$year <-as.numeric(co2percapita_tidy$year)
 total <- CO2.17 %>% 
   filter ( 지역 == "국가") 
 
-View(total)
+  View(total)
 
 
 total_co2percapita <-bind_rows(total, co2percapita_tidy)
@@ -640,7 +723,7 @@ CO2.17 %>%
        x = "년도",
        y = " 온실가스 배출량")+
   scale_fill_brewer(palette="Set3")+
-  facet_grid(cols = vars(지역))+
+    facet_grid(cols = vars(지역))+
   theme(axis.ticks.x=element_blank(),
         axis.text.x = element_blank())
 
@@ -735,7 +818,7 @@ EPSIS <- EPSIS_tidy %>%
   scale_x_continuous(c(2001, 2005, 2010, 2015, 2020)) 
 
 EPSIS
-
+  
 
 ### 전국 발전원/발전설비용량
 
@@ -755,8 +838,8 @@ EPSIS_tidy %>%
   ggplot(mapping= aes(x=기간, y=발전설비, group = 발전원, fill = 발전원))+
   geom_area()+
   scale_x_continuous(breaks = seq(2001,2020, 1)) 
-
-
+                     
+  
 
 library(plotly)
 
@@ -815,3 +898,5 @@ ggplot() +
   facet_wrap(~지역, nrow = 2)+
   labs ( x = "년도",
          y = "온실가스 배출량")
+
+
