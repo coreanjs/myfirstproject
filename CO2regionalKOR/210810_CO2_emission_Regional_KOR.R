@@ -43,11 +43,11 @@ str(co2.tidy)
 
 
 
-
 ##numeric으로 설정!!!
 
+
+co2.tidy$emission <- as.numeric(gsub(",","", co2.tidy$emission))
 co2.tidy$year <- as.numeric(co2.tidy$year)
-co2.tidy$emission <- as.numeric(co2.tidy$emission)
 
 
 head(co2.tidy)
@@ -59,6 +59,50 @@ View(co2.tidy)
 co2.tidy[co2.tidy == 0] <-NA
 
 View(co2.tidy)
+
+co2.regional.net <-co2.tidy %>% 
+  filter(region!="국가" & type =="순배출량")
+
+
+View(co2.regional.net)
+
+head(co2.regional.net)
+
+
+
+
+## 랜덤 컬러 뽑아주는 라이브러리
+library(randomcoloR)
+
+Random <-distinctColorPalette(17)
+
+Random
+
+### 1990-2018 지역별 온실가스 배출 비중을 보자
+
+co2.regional.net %>% 
+  ggplot(aes(x=year, y= emission, group= region, fill = region))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_manual(values= Random)+
+  scale_y_continuous( labels = comma)
+
+co2.regional.net %>% 
+  ggplot(aes(x=year, y= emission, group= region, fill = region))+
+  geom_bar(position = "fill", stat= "identity")+
+  scale_fill_manual(values= Random)+
+  scale_y_continuous( labels = comma)
+
+
+
+
+co2.regional.net %>% 
+  filter( year == '2018') %>% 
+  ggplot(aes(x=region, y= emission, group= region, fill = region))+
+  geom_bar(position = "stack", stat= "identity")+
+  scale_fill_manual(values= Random)+
+  scale_y_continuous( labels = comma)
+
+
 
 
 
@@ -268,8 +312,6 @@ str(co2_total_tidy)
 co2_total_tidy$year <- as.numeric(co2_total_tidy$year)
 
 
-co2_total_tidy <- as.data.frame(co2_total_tidy)
-
 ## emission  as.numeric 오류 나서 아래 코드로 해결...
 
 co2_total_tidy$emission <- as.numeric(gsub(",","", co2_total_tidy$emission))
@@ -416,9 +458,6 @@ ggplot() +
 
 
 ## 1990~ 2018 17개시도별 온실가스 배출 구분  (누적 area 차트)  -> 인포그래픽 제작
- 
-
-
 ## 잘 되는 버전 (완성)
 
 CO2.17 %>% 
@@ -478,10 +517,11 @@ ggplot() +
   scale_y_continuous( labels = comma,
                       sec.axis = sec_axis(~.*1, name = "지역별 발전량(GWh)", labels = comma))+ 
   scale_fill_brewer(palette="Set3")+
-  facet_wrap(~지역, nrow = 2)+
-  labs ( x = "년도",
-         y = "온실가스 배출량")
-
+  facet_wrap(~지역, ncol = 4)+
+  labs(title = "1990-2018 대한민국 17대 광역지자체 온실가스 배출량 및 전력 생산량",
+       subtitle = "서브타이틀",
+       x = "년도",
+       y = "온실가스 배출량")
 
 
 ####  지역별 온실가스 배출량 + KESIS 지역별 소비량(테스트) Consumption
@@ -509,6 +549,7 @@ str(powerconsump_tidy)
 
 powerconsump_tidy$GWh <- as.numeric(gsub(",","", powerconsump_tidy$GWh))
 
+windows()
 
 ggplot() + 
   geom_area(data = CO2.17_reg_sec, mapping= aes(x=year, y=emission, fill = 구분, group = 구분))+
@@ -517,9 +558,11 @@ ggplot() +
   scale_y_continuous( labels = comma,
                       sec.axis = sec_axis(~.*1, name = "지역별 전력소비량(GWh)", labels = comma))+ 
   scale_fill_brewer(palette="Set3")+
-  facet_wrap(~지역, nrow = 2)+
-  labs ( x = "년도",
-         y = "온실가스 배출량")
+  facet_wrap(~지역, ncol = 4)+
+  labs(title = "1990-2018 대한민국 17대 광역지자체 온실가스 배출량 및 전력 소비량",
+       subtitle = "서브타이틀",
+       x = "년도",
+       y = "온실가스 배출량")
 
 
 
@@ -531,28 +574,13 @@ ggplot() +
   geom_line(data = powergen_tidy, mapping= aes(x=year, y=GWh), 
             color = "blue", size =1, alpha = 0.7)+
   scale_fill_brewer(palette="Set3")+
-  facet_wrap(~지역, nrow = 2)+
-  theme(legend.title=element_text(size=10))+
-  labs ( x = "년도",
-         y = "온실가스 배출량")
+  facet_wrap(~지역, ncol = 4)+
+  labs(title = "1990-2018 대한민국 17대 광역지자체 발전량 및 소비량",
+       subtitle = "서브타이틀",
+       x = "년도",
+       y = "온실가스 배출량")
 
 
-
-
-
-
-## 지역별 온실가스 배출량 + 전력자립도  double axis (테스트)
-
-ggplot() + 
-  geom_area(data = CO2.17_reg_sec, mapping= aes(x=year, y=emission, fill = 구분, group = 구분))+
-  geom_line(data = independence_tidy, mapping= aes(x=year, y=percent/0.001), 
-            color = "blue", size =1, alpha = 0.7)+
-  scale_y_continuous( labels = comma,
-                      sec.axis = sec_axis(~. *0.001, name = "인당CO2 배출량(tCO2eq/인)", labels = comma))+ 
-  scale_fill_brewer(palette="Set3")+
-  facet_wrap(~지역, nrow = 2)+
-  labs ( x = "년도",
-         y = "온실가스 배출량")
 
 
 
@@ -579,6 +607,19 @@ View(CO2.17)
 
 
 
+
+## 지역별 온실가스 배출량 + 전력자립도  double axis (테스트)
+
+ggplot() + 
+  geom_area(data = CO2.17_reg_sec, mapping= aes(x=year, y=emission, fill = 구분, group = 구분))+
+  geom_line(data = independence_tidy, mapping= aes(x=year, y=percent/0.001), 
+            color = "blue", size =1, alpha = 0.7)+
+  scale_y_continuous( labels = comma,
+                      sec.axis = sec_axis(~. *0.001, name = "인당CO2 배출량(tCO2eq/인)", labels = comma))+ 
+  scale_fill_brewer(palette="Set3")+
+  facet_wrap(~지역, nrow = 2)+
+  labs ( x = "년도",
+         y = "온실가스 배출량")
 
 
 ## 1990~ 2018 국가 온실가스 배출 구분   (바 차트)
@@ -612,7 +653,10 @@ CO2.17 %>%
        x = "년도",
        y = " 온실가스 배출량")+
   scale_fill_brewer(palette="Set3")+
-  scale_x_reverse()
+  scale_y_continuous( labels = comma)+
+  scale_x_reverse(breaks = seq(1990,2018, by=1))
+ 
+  
 
 
 
